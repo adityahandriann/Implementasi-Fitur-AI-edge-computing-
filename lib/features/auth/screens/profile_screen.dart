@@ -38,11 +38,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return (data['roomNumber'] ?? '').toString();
     }).where((room) => room.isNotEmpty).toList();
     
-    List<String> available = [];
+    List<String> allRooms = [];
     for (int l = 1; l <= 3; l++) {
       for (int n = 1; n <= 10; n++) {
-        String r = "$l.$n";
-        if (!occupied.contains(r)) available.add(r);
+        allRooms.add("$l.$n");
       }
     }
 
@@ -61,8 +60,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 hint: const Text('Pilih Kamar Baru'),
-                items: available.map((r) => DropdownMenuItem(value: r, child: Text('Kamar $r'))).toList(),
-                onChanged: (val) => setDialogState(() => selectedNewRoom = val),
+                items: allRooms.map((r) {
+                  bool isOccupied = occupied.contains(r);
+                  return DropdownMenuItem(
+                    value: r, 
+                    child: Text(
+                      isOccupied ? 'Kamar $r (Terisi)' : 'Kamar $r',
+                      style: TextStyle(
+                        color: isOccupied ? Colors.grey : Colors.black,
+                        fontStyle: isOccupied ? FontStyle.italic : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null && occupied.contains(val)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Kamar ini sudah terisi!'), backgroundColor: Colors.orange),
+                    );
+                    return;
+                  }
+                  setDialogState(() => selectedNewRoom = val);
+                },
               ),
             ],
           ),
@@ -179,18 +198,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                if (role == 'user')
-                  Material(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    child: ListTile(
-                      title: Text('Manajemen Kamar', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant)),
-                      subtitle: Text('Ajukan permohonan pindah kamar', style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8))),
-                      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      onTap: () => _showMoveRoomDialog(roomNumber),
-                    ),
+                if (role == 'user') ...[
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('room_move_requests')
+                        .where('uid', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, moveSnapshot) {
+                      final hasRequest = moveSnapshot.hasData && moveSnapshot.data!.docs.isNotEmpty;
+                      
+                      return Material(
+                        color: hasRequest 
+                            ? Colors.orange.withValues(alpha: 0.1) 
+                            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          leading: Icon(
+                            hasRequest ? Icons.hourglass_empty : Icons.meeting_room_outlined,
+                            color: hasRequest ? Colors.orange : colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            hasRequest ? 'Permintaan Pindah Sedang Diproses' : 'Manajemen Kamar',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: hasRequest ? Colors.orange[900] : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          subtitle: Text(
+                            hasRequest 
+                                ? 'Menunggu persetujuan admin ke Kamar ${moveSnapshot.data!.docs.first['toRoom']}'
+                                : 'Ajukan permohonan pindah kamar',
+                            style: TextStyle(
+                              color: hasRequest 
+                                  ? Colors.orange[800]?.withValues(alpha: 0.8) 
+                                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          trailing: hasRequest 
+                              ? IconButton(
+                                  icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                                  onPressed: () => moveSnapshot.data!.docs.first.reference.delete(),
+                                  tooltip: 'Batalkan Permintaan',
+                                )
+                              : Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onTap: hasRequest ? null : () => _showMoveRoomDialog(roomNumber),
+                        ),
+                      );
+                    },
                   ),
+                ],
                 
                 const SizedBox(height: 40),
                 

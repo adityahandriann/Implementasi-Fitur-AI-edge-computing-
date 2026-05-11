@@ -90,14 +90,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: authProvider.isLoading
                       ? null
                       : () async {
-                          bool success = await authProvider.login(
+                          String status = await authProvider.login(
                             _emailController.text,
                             _passwordController.text,
                           );
 
                           if (!mounted) return;
 
-                          if (success) {
+                          if (status == 'success') {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
@@ -106,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     : const UserDashboard(),
                               ),
                             );
-                          } else if (authProvider.errorMessage.contains('menunggu konfirmasi')) {
+                          } else if (status == 'waiting_approval') {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(builder: (_) => const WaitingApprovalScreen()),

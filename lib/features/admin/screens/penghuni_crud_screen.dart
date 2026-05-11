@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/local_db_provider.dart';
 import '../../../widgets/custom_widgets.dart';
+import '../../ai/screens/ktp_scanner_screen.dart';
 
 class PenghuniCrudScreen extends StatefulWidget {
   const PenghuniCrudScreen({super.key});
@@ -24,7 +25,7 @@ class _PenghuniCrudScreenState extends State<PenghuniCrudScreen> with SingleTick
     });
   }
 
-  void _approveUser(Map<String, dynamic> userData, String docId) async {
+  void _approveUser(Map<String, dynamic> userData, String docId, {String nik = '', String alamat = ''}) async {
     final dbProvider = context.read<LocalDbProvider>();
     
     final kamar = dbProvider.kamarList.firstWhere(
@@ -49,7 +50,7 @@ class _PenghuniCrudScreenState extends State<PenghuniCrudScreen> with SingleTick
       return;
     }
 
-    await dbProvider.addPenghuni(kamar['id_kamar'], userData['name'], userData['wa'], DateTime.now().toString().split(' ').first);
+    await dbProvider.addPenghuni(kamar['id_kamar'], userData['name'], userData['wa'], DateTime.now().toString().split(' ').first, nik: nik, alamat: alamat);
     await FirebaseFirestore.instance.collection('users').doc(docId).update({'isApproved': true});
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Penghuni berhasil dikonfirmasi!'), backgroundColor: Colors.green));
   }
@@ -126,15 +127,48 @@ class _PenghuniCrudScreenState extends State<PenghuniCrudScreen> with SingleTick
       itemCount: db.penghuniList.length,
       itemBuilder: (context, index) {
         final p = db.penghuniList[index];
+        final hasNik = (p['nik'] ?? '').toString().isNotEmpty;
+        final hasAlamat = (p['alamat'] ?? '').toString().isNotEmpty;
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: CircleAvatar(child: Text(p['nomor_kamar'].toString())),
-            title: Text(p['nama_lengkap']),
-            subtitle: Text('WA: ${p['nomor_wa']} • Kamar: ${p['nomor_kamar']}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => db.deletePenghuni(p['id_penghuni']),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(child: Text(p['nomor_kamar'].toString())),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p['nama_lengkap'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('WA: ${p['nomor_wa']} • Kamar: ${p['nomor_kamar']}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () => db.deletePenghuni(p['id_penghuni']),
+                    ),
+                  ],
+                ),
+                if (hasNik || hasAlamat) ...[
+                  const Divider(height: 16),
+                  if (hasNik)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 52),
+                      child: Text('NIK: ${p['nik']}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    ),
+                  if (hasAlamat)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 52, top: 2),
+                      child: Text('Alamat: ${p['alamat']}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    ),
+                ],
+              ],
             ),
           ),
         );
@@ -157,14 +191,43 @@ class _PenghuniCrudScreenState extends State<PenghuniCrudScreen> with SingleTick
             final docId = docs[index].id;
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                title: Text(data['name'] ?? ''),
-                subtitle: Text('Kamar: ${data['roomNumber']} • WA: ${data['wa']}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => docs[index].reference.delete()),
-                    IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _approveUser(data, docId)),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(data['name'] ?? ''),
+                      subtitle: Text('Kamar: ${data['roomNumber']} • WA: ${data['wa']}'),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final result = await Navigator.push<Map<String, String>>(
+                                context,
+                                MaterialPageRoute(builder: (_) => const KtpScannerScreen()),
+                              );
+                              if (result != null && mounted) {
+                                _approveUser(data, docId, nik: result['nik'] ?? '', alamat: result['alamat'] ?? '');
+                              }
+                            },
+                            icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                            label: const Text('Scan KTP & Setujui'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF4F46E5),
+                              side: const BorderSide(color: Color(0xFF4F46E5)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => docs[index].reference.delete()),
+                        IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _approveUser(data, docId)),
+                      ],
+                    ),
                   ],
                 ),
               ),

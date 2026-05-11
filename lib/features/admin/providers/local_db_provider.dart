@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../database/database_helper.dart';
 
 class LocalDbProvider extends ChangeNotifier {
@@ -101,30 +102,51 @@ class LocalDbProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addPenghuni(int idKamar, String nama, String wa, String tanggal) async {
+  Future<void> addPenghuni(int idKamar, String nama, String wa, String tanggal, {String nik = '', String alamat = ''}) async {
     await DatabaseHelper.instance.createPenghuni({
       'id_kamar': idKamar,
       'nama_lengkap': nama,
       'nomor_wa': wa,
       'tanggal_masuk': tanggal,
+      'nik': nik,
+      'alamat': alamat,
     });
     await fetchPenghuni();
+    await _syncOccupiedRoomsToFirestore();
   }
 
-  Future<void> editPenghuni(int idPenghuni, int idKamar, String nama, String wa, String tanggal) async {
+  Future<void> editPenghuni(int idPenghuni, int idKamar, String nama, String wa, String tanggal, {String nik = '', String alamat = ''}) async {
     await DatabaseHelper.instance.updatePenghuni({
       'id_penghuni': idPenghuni,
       'id_kamar': idKamar,
       'nama_lengkap': nama,
       'nomor_wa': wa,
       'tanggal_masuk': tanggal,
+      'nik': nik,
+      'alamat': alamat,
     });
     await fetchPenghuni();
+    await _syncOccupiedRoomsToFirestore();
   }
 
   Future<void> deletePenghuni(int id) async {
     await DatabaseHelper.instance.deletePenghuni(id);
     await fetchPenghuni();
+    await _syncOccupiedRoomsToFirestore();
+  }
+
+  // Sinkronisasi nomor kamar yang terisi ke Firestore agar bisa dilihat oleh pendaftar baru
+  Future<void> _syncOccupiedRoomsToFirestore() async {
+    try {
+      final occupied = _penghuniList.map((p) => p['nomor_kamar'].toString()).toList();
+      await FirebaseFirestore.instance.collection('system').doc('room_status').set({
+        'occupied_list': occupied,
+        'last_sync': FieldValue.serverTimestamp(),
+      });
+      debugPrint("Kamar tersinkronisasi ke Firestore: $occupied");
+    } catch (e) {
+      debugPrint("Gagal sinkronisasi kamar ke Firestore: $e");
+    }
   }
 
   Future<void> resetToFixedRooms() async {

@@ -21,8 +21,9 @@ class AuthService {
         
         String role = 'user';
         bool isApproved = false;
+        Map<String, dynamic>? data;
         if (userDoc.exists && userDoc.data() != null) {
-          final data = userDoc.data() as Map<String, dynamic>;
+          data = userDoc.data() as Map<String, dynamic>;
           role = data['role'] ?? 'user';
           isApproved = data['isApproved'] ?? false;
         }
@@ -38,9 +39,12 @@ class AuthService {
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('role', role);
           await prefs.setString('uid', user.uid);
+          if (data != null && data['roomNumber'] != null) {
+            await prefs.setString('roomNumber', data['roomNumber']);
+          }
         }
 
-        return {'success': true, 'role': role};
+        return {'success': true, 'role': role, 'roomNumber': data?['roomNumber'], 'isPending': false};
       }
       return {'success': false, 'message': 'Gagal mendapatkan data user.'};
     } on FirebaseAuthException catch (e) {

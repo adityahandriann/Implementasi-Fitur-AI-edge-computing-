@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../../admin/providers/local_db_provider.dart';
 
@@ -13,30 +15,60 @@ class ReportPaymentScreen extends StatefulWidget {
 }
 
 class _ReportPaymentScreenState extends State<ReportPaymentScreen> {
-  String? _selectedKamar;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LocalDbProvider>().fetchKamar();
-    });
-  }
+  bool _isAiValidating = false;
 
   void _submit() async {
     final provider = context.read<TicketProvider>();
+    final authProvider = context.read<AuthProvider>();
     final user = FirebaseAuth.instance.currentUser;
+    final roomNumber = authProvider.roomNumber ?? '-';
 
-    if (_selectedKamar == null || provider.selectedImage == null) {
+    if (provider.selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harap pilih nomor kamar dan lampirkan bukti transfer!')),
+        const SnackBar(content: Text('Harap lampirkan bukti transfer!')),
+      );
+      return;
+    }
+
+    setState(() => _isAiValidating = true);
+
+    // AI Validation: Mengecek apakah gambar adalah struk/dokumen/screenshot
+    bool isValidProof = false;
+    try {
+      final inputImage = InputImage.fromFile(provider.selectedImage!);
+      final imageLabeler = ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.5));
+      final labels = await imageLabeler.processImage(inputImage);
+      
+      final validKeywords = ['Text', 'Document', 'Screenshot', 'Receipt', 'Font', 'Paper', 'Number', 'Mobile phone'];
+      
+      for (final label in labels) {
+        if (validKeywords.contains(label.label)) {
+          isValidProof = true;
+          break;
+        }
+      }
+      imageLabeler.close();
+    } catch (e) {
+      isValidProof = true; // Fallback jika ML Kit gagal inisialisasi
+    }
+
+    setState(() => _isAiValidating = false);
+
+    if (!isValidProof) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🤖 AI: Gambar ditolak! Harap unggah struk atau screenshot pembayaran.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
       );
       return;
     }
 
     final success = await provider.sendPaymentReport(
       user?.uid ?? '',
-      _selectedKamar!,
+      roomNumber,
     );
 
     if (success) {
@@ -56,7 +88,7 @@ class _ReportPaymentScreenState extends State<ReportPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final ticketProvider = context.watch<TicketProvider>();
-    final dbProvider = context.watch<LocalDbProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lapor Pembayaran')),
@@ -65,20 +97,19 @@ class _ReportPaymentScreenState extends State<ReportPaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Konfirmasi Kamar', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Melaporkan dari Kamar', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedKamar,
-              hint: const Text('Pilih Nomor Kamar'),
-              items: dbProvider.kamarList.map((k) {
-                return DropdownMenuItem(
-                  value: k['nomor_kamar'].toString(),
-                  child: Text('Kamar ${k['nomor_kamar']}'),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => _selectedKamar = val),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                'Kamar ${authProvider.roomNumber ?? "-"}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
               ),
             ),
             const SizedBox(height: 32),
@@ -127,8 +158,14 @@ class _ReportPaymentScreenState extends State<ReportPaymentScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            ticketProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
+            ticketProvider.isLoading || _isAiValidating
+                ? Column(
+                    children: const [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text('AI sedang memvalidasi gambar... 🤖', style: TextStyle(color: Colors.grey)),
+                    ],
+                  )
                 : ElevatedButton(
                     onPressed: _submit,
                     style: ElevatedButton.styleFrom(

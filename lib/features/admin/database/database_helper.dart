@@ -19,8 +19,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -45,9 +46,18 @@ CREATE TABLE penghuni (
   nama_lengkap $textType,
   nomor_wa $textType,
   tanggal_masuk $textType,
+  nik TEXT DEFAULT '',
+  alamat TEXT DEFAULT '',
   FOREIGN KEY (id_kamar) REFERENCES kamar (id_kamar) ON DELETE CASCADE
 )
 ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute("ALTER TABLE penghuni ADD COLUMN nik TEXT DEFAULT ''");
+      await db.execute("ALTER TABLE penghuni ADD COLUMN alamat TEXT DEFAULT ''");
+    }
   }
 
   // --- CRUD KAMAR ---

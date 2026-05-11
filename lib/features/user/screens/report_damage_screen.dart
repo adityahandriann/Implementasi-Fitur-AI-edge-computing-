@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import '../../auth/providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../../admin/providers/local_db_provider.dart';
 import '../../ai/screens/yolo_damage_scanner_screen.dart';
@@ -14,32 +15,25 @@ class ReportDamageScreen extends StatefulWidget {
 }
 
 class _ReportDamageScreenState extends State<ReportDamageScreen> {
-  String? _selectedKamar;
   final _deskripsiController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Pastikan data kamar terambil untuk dropdown
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LocalDbProvider>().fetchKamar();
-    });
-  }
+  bool _usedAiScanner = false;
 
   void _submit() async {
     final provider = context.read<TicketProvider>();
+    final authProvider = context.read<AuthProvider>();
     final user = FirebaseAuth.instance.currentUser;
+    final roomNumber = authProvider.roomNumber ?? '-';
 
-    if (_selectedKamar == null || _deskripsiController.text.isEmpty || provider.selectedImage == null) {
+    if (_deskripsiController.text.isEmpty || (provider.selectedImage == null && !_usedAiScanner)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harap isi semua bidang dan ambil foto!')),
+        const SnackBar(content: Text('Harap isi deskripsi dan ambil foto (opsional jika via AI)!')),
       );
       return;
     }
 
     final success = await provider.sendDamageReport(
       user?.uid ?? '',
-      _selectedKamar!,
+      roomNumber,
       _deskripsiController.text,
     );
 
@@ -60,7 +54,7 @@ class _ReportDamageScreenState extends State<ReportDamageScreen> {
   @override
   Widget build(BuildContext context) {
     final ticketProvider = context.watch<TicketProvider>();
-    final dbProvider = context.watch<LocalDbProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lapor Kerusakan')),
@@ -69,21 +63,19 @@ class _ReportDamageScreenState extends State<ReportDamageScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pilih Kamar Anda', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Melaporkan dari Kamar', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedKamar,
-              hint: const Text('Pilih Nomor Kamar'),
-              items: dbProvider.kamarList.map((k) {
-                return DropdownMenuItem(
-                  value: k['nomor_kamar'].toString(),
-                  child: Text('Kamar ${k['nomor_kamar']}'),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => _selectedKamar = val),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                'Kamar ${authProvider.roomNumber ?? "-"}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
               ),
             ),
             const SizedBox(height: 20),
@@ -115,7 +107,10 @@ class _ReportDamageScreenState extends State<ReportDamageScreen> {
                 );
                 // Jika user sudah konfirmasi hasil, isi otomatis
                 if (result != null && result.isNotEmpty) {
-                  _deskripsiController.text = result;
+                  setState(() {
+                    _deskripsiController.text = result;
+                    _usedAiScanner = true;
+                  });
                 }
               },
               icon: const Icon(Icons.document_scanner_outlined),

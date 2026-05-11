@@ -31,42 +31,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
     setState(() => _isFetchingRooms = true);
     try {
-      // Mencoba mengambil data kamar terisi
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isEqualTo: 'user')
-          .get();
+      // 1. Ambil data dari User yang sedang mendaftar (Cloud Firestore)
+      final userSnapshot = await FirebaseFirestore.instance.collection('users').get();
+      final List<String> fromUsers = userSnapshot.docs.map((doc) {
+        final data = doc.data();
+        return (data['roomNumber'] ?? '').toString().trim();
+      }).where((room) => room.isNotEmpty).toList();
+
+      // 2. Ambil data dari Sinkronisasi Admin (Master Status dari SQLite)
+      final masterDoc = await FirebaseFirestore.instance.collection('system').doc('room_status').get();
+      List<String> fromMaster = [];
+      if (masterDoc.exists) {
+        final data = masterDoc.data();
+        fromMaster = List<String>.from(data?['occupied_list'] ?? []);
+      }
       
       if (mounted) {
         setState(() {
-          _occupiedRooms = snapshot.docs.map((doc) {
-            final data = doc.data();
-            return (data['roomNumber'] ?? '').toString().trim();
-          }).where((room) => room.isNotEmpty).toList();
+          // Gabungkan kedua sumber data dan hilangkan duplikasi (unique set)
+          _occupiedRooms = {...fromUsers, ...fromMaster}.toList();
           _isFetchingRooms = false;
         });
       }
     } catch (e) {
-      // Jika gagal (karena permission atau index), kita biarkan list kosong 
-      // dan biarkan User mendaftar (validasi dilakukan Admin nanti)
+      debugPrint("Error fetching rooms: $e");
       if (mounted) {
-        setState(() {
-          _occupiedRooms = [];
-          _isFetchingRooms = false;
-        });
-        debugPrint("Firestore Notice: Gagal memuat filter kamar (mungkin aturan Firestore belum diatur).");
+        setState(() => _isFetchingRooms = false);
+        
+        // Jika errornya adalah masalah izin (belum diatur di Firebase Console)
+        // Kita tidak tampilkan pesan teknis yang mengganggu UI registrasi, 
+        // tapi kita log di console agar developer tahu.
+        if (e.toString().contains('permission-denied')) {
+          debugPrint("PENTING: Atur Firestore Security Rules Anda ke 'allow read: if true' untuk koleksi 'users' dan 'system'.");
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Status kamar tidak sinkron: $e'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
 
-  List<String> _getAvailableRooms() {
+  List<String> _getAllRooms() {
     List<String> rooms = [];
     for (int l = 1; l <= 3; l++) {
       for (int n = 1; n <= 10; n++) {
-        String room = "$l.$n";
-        if (!_occupiedRooms.contains(room)) {
-          rooms.add(room);
-        }
+        rooms.add("$l.$n");
       }
     }
     return rooms;
@@ -133,15 +147,140 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 12),
                 
+                const Text(
+                  'Pilih Nomor Kamar',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                
                 _isFetchingRooms 
-                  ? const LinearProgressIndicator()
-                  : DropdownButtonFormField<String>(
-                      initialValue: _selectedKamar,
-                      isExpanded: true,
-                      hint: const Text('Pilih Nomor Kamar', style: TextStyle(fontSize: 14)),
-                      decoration: const InputDecoration(prefixIcon: Icon(Icons.meeting_room_outlined, size: 18)),
-                      items: _getAvailableRooms().map((room) => DropdownMenuItem(value: room, child: Text('Kamar $room', style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: (val) => setState(() => _selectedKamar = val),
+                  ? const Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 8),
+                          Text('Mengecek ketersediaan kamar...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                _buildLegendItem(Colors.green, 'Tersedia'),
+                                const SizedBox(width: 12),
+                                _buildLegendItem(Colors.red, 'Terisi'),
+                              ],
+                            ),
+                            Text(
+                              '${_getAllRooms().length - _occupiedRooms.length} Kamar Kosong',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 18),
+                              onPressed: _fetchOccupiedRooms,
+                              tooltip: 'Refresh Status',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 1,
+                          ),
+                          itemCount: _getAllRooms().length,
+                          itemBuilder: (context, index) {
+                            final room = _getAllRooms()[index];
+                            
+                            // Logika Pencocokan Fleksibel: 
+                            // Kamar terisi jika nomor kamar (misal '1.1') ada di dalam list terisi 
+                            // (menangani jika di database tertulis 'Kamar 1.1' atau '1.1')
+                            bool isOccupied = _occupiedRooms.any((occ) => 
+                              occ.toString().trim() == room || 
+                              occ.toString().contains(room)
+                            );
+                            
+                            bool isSelected = _selectedKamar == room;
+
+                            return GestureDetector(
+                              onTap: isOccupied ? () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Kamar $room sudah ditempati!'),
+                                    backgroundColor: Colors.redAccent,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              } : () {
+                                setState(() => _selectedKamar = room);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                decoration: BoxDecoration(
+                                  color: isOccupied 
+                                      ? Colors.red.withValues(alpha: 0.15) 
+                                      : (isSelected ? const Color(0xFF4F46E5) : Colors.green.withValues(alpha: 0.1)),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isOccupied 
+                                        ? Colors.red.withValues(alpha: 0.8) 
+                                        : (isSelected ? const Color(0xFF4F46E5) : Colors.green.withValues(alpha: 0.5)),
+                                    width: isSelected ? 3 : 1.5,
+                                  ),
+                                  boxShadow: isSelected ? [
+                                    BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))
+                                  ] : null,
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          room,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isOccupied 
+                                                ? Colors.red[900] 
+                                                : (isSelected ? Colors.white : Colors.green[900]),
+                                          ),
+                                        ),
+                                        if (isOccupied)
+                                          const Text('FULL', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.red)),
+                                      ],
+                                    ),
+                                    if (isSelected)
+                                      const Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: Icon(Icons.check_circle, size: 14, color: Colors.white),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        if (_selectedKamar != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              '✅ Anda memilih Kamar $_selectedKamar',
+                              style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                      ],
                     ),
               ],
               
@@ -211,6 +350,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            border: Border.all(color: color),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+      ],
     );
   }
 

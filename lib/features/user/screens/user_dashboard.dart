@@ -267,40 +267,6 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
             
             const SizedBox(height: 20),
-            Center(
-              child: Column(
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.timer_outlined, size: 16),
-                    label: const Text('Test Notifikasi (Jadwal 10 Detik)', style: TextStyle(fontSize: 12)),
-                    onPressed: () async {
-                      final scheduledTime = DateTime.now().add(const Duration(seconds: 10));
-                      await NotificationService().scheduleReminder(
-                        888,
-                        '⏲️ Test Jadwal Berhasil!',
-                        'Ini adalah notifikasi yang dijadwalkan 10 detik lalu.',
-                        scheduledTime,
-                      );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Notifikasi dijadwalkan 10 detik lagi...')),
-                        );
-                      }
-                    },
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.notifications_active_outlined, size: 16),
-                    label: const Text('Test Notifikasi (Instan)', style: TextStyle(fontSize: 12)),
-                    onPressed: () async {
-                      await NotificationService().showNotification(
-                        '🔔 Test Instan Berhasil!',
-                        'Notifikasi SobatKost sudah aktif.',
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

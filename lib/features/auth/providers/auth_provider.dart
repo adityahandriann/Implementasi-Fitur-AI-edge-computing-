@@ -20,6 +20,9 @@ class AuthProvider extends ChangeNotifier {
   String? _role;
   String? get role => _role;
 
+  String? _roomNumber;
+  String? get roomNumber => _roomNumber;
+
   bool _rememberMe = false;
   bool get rememberMe => _rememberMe;
 
@@ -32,6 +35,7 @@ class AuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     _role = prefs.getString('role');
+    _roomNumber = prefs.getString('roomNumber');
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     notifyListeners();
   }
@@ -43,8 +47,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Fungsi login yang akan dipanggil dari UI
-  Future<bool> login(String email, String password) async {
+  // Fungsi login yang mengembalikan status spesifik
+  Future<String> login(String email, String password) async {
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
@@ -54,21 +58,27 @@ class AuthProvider extends ChangeNotifier {
 
       if (result != null && result['success'] == true) {
         _role = result['role'];
+        _roomNumber = result['roomNumber'];
         _isLoggedIn = true;
         _isLoading = false;
         notifyListeners();
-        return true;
+        return 'success';
+      } else if (result != null && result['isPending'] == true) {
+        _errorMessage = result['message'];
+        _isLoading = false;
+        notifyListeners();
+        return 'waiting_approval';
       } else {
         _errorMessage = result?['message'] ?? 'Login gagal';
         _isLoading = false;
         notifyListeners();
-        return false;
+        return 'error';
       }
     } catch (e) {
       _errorMessage = "Terjadi kesalahan sistem: $e";
       _isLoading = false;
       notifyListeners();
-      return false;
+      return 'error';
     }
   }
 
