@@ -8,48 +8,40 @@
 
 ---
 
-## 📖 Deskripsi Proyek
+## 📝 Deskripsi Project
+**SobatKost** adalah aplikasi manajemen kost cerdas yang mengimplementasikan teknologi **Edge Computing (AI On-Device)** untuk memproses data langsung di perangkat Android pengguna tanpa bergantung pada server internet. Pendekatan ini meningkatkan kecepatan, efisiensi bandwidth, dan keamanan privasi data penghuni.
 
-SobatKost adalah aplikasi manajemen kost modern yang mengintegrasikan teknologi **Edge Computing (Artificial Intelligence On-Device)** untuk mempermudah proses registrasi, pemantauan status kamar, dan pelaporan kerusakan. 
-
-Dibangun dengan Flutter, aplikasi ini menggabungkan database lokal (SQLite) untuk Admin dan sinkronisasi Cloud (Firebase Firestore) untuk memastikan keakuratan data secara global dan real-time.
-
-### ✨ Fitur Unggulan & Implementasi AI
-
-1. **AI Edge KTP Scanner (Google ML Kit)**
-   - **Fungsi:** Ekstraksi otomatis data NIK, Nama, dan Alamat dari KTP fisik saat proses verifikasi penghuni baru.
-   - **Inovasi Edge Computing:** Pemrosesan gambar dan pengenalan teks (*Optical Character Recognition*) dilakukan 100% secara *offline* di perangkat (*on-device*). Ini menjamin privasi data KTP yang sensitif tanpa perlu mengirim gambar ke server, serta memberikan respons deteksi yang sangat cepat. Dilengkapi dengan algoritma filter cerdas (*Pattern Matching*) untuk memisahkan Label ("Nama") dengan Nilai Asli (Nama Penghuni).
-
-2. **AI Real-Time Damage Scanner (YOLOv11)**
-   - **Fungsi:** Pemindaian kerusakan fasilitas kost secara langsung melalui kamera.
-   - **Inovasi Edge Computing:** Menggunakan model AI YOLO (*You Only Look Once*) versi *lite* yang dijalankan langsung di HP menggunakan `ultralytics_yolo`. Fitur ini membantu penghuni dan admin mendeteksi kerusakan secara visual dan otomatis membuat deskripsi laporan tanpa perlu mengetik manual.
-
-3. **Global Real-Time Room Availability Map**
-   - Menggantikan dropdown tradisional dengan peta grid kamar yang interaktif. (Hijau: Kosong, Merah: Terisi/FULL).
-   - Menggunakan sinkronisasi cerdas antara *SQLite (Local Admin DB)* dan *Firestore (Cloud)* sehingga calon pendaftar selalu melihat status ketersediaan kamar yang akurat meskipun Admin melakukan penambahan data secara manual (*offline*).
+Project ini menggunakan arsitektur hybrid database (Firebase Firestore untuk sinkronisasi global & SQLite untuk manajemen lokal) beserta UI grid visual interaktif untuk pemilihan kamar.
 
 ---
 
-## 📸 Screenshots
+## 🤖 Implementasi Fitur AI (Edge Computing)
 
-*(Ganti URL gambar di bawah dengan link screenshot asli Anda. Cara termudah: Seret & lepas (drag-and-drop) gambar dari komputer ke area editor GitHub, dan GitHub akan otomatis membuatkan link gambarnya).*
+Project ini mengintegrasikan dua model AI Edge Computing utama yang sangat fungsional untuk manajemen kost:
 
-### 1. Fitur AI: Scan KTP (Edge OCR)
-![AI KTP Scanner](URL_GAMBAR_SCAN_KTP)
-> *Sistem secara otomatis mengekstrak NIK dan Nama dari KTP fisik tanpa internet.*
+### 1. Smart KTP Scanner (Edge OCR)
+Fitur otomatisasi pendataan penghuni baru menggunakan **Google ML Kit Text Recognition**.
+* **Cara Kerja**: Kamera memindai KTP fisik dan AI mengekstrak data sensitif (NIK, Nama, Alamat) secara *real-time*.
+* **Konsep Edge**: Pemrosesan *Computer Vision* dilakukan sepenuhnya di dalam *smartphone* pengguna (On-Device). Data KTP tidak pernah dikirim ke server/API pihak ketiga untuk dibaca, sehingga privasi NIK sangat aman.
+* **Smart Filtering**: Algoritma AI dilengkapi filter *Pattern Matching* untuk membedakan antara "Label" (seperti tulisan "Tempat/Tgl Lahir") dengan "Value" (Nama sebenarnya) di tengah pola *watermark* KTP.
 
-### 2. Fitur AI: Damage Scanner (YOLO)
-![YOLO Damage Scanner](URL_GAMBAR_YOLO_SCANNER)
-> *Deteksi objek dan kerusakan secara real-time melalui kamera HP.*
-
-### 3. Peta Kamar & Registrasi (Real-time Sync)
-![Visual Room Map](URL_GAMBAR_PETA_KAMAR)
-> *Sistem grid kamar visual. Kamar yang sudah dikonfirmasi Admin di database lokal otomatis menjadi merah (FULL) bagi pengguna baru di aplikasi.*
-
-### 4. Admin Dashboard
-![Admin Dashboard](URL_GAMBAR_ADMIN_DASHBOARD)
-> *Halaman Admin untuk manajemen data penghuni (CRUD SQLite).*
+### 2. YOLO Damage Scanner (Real-Time Object Detection)
+Fitur pelaporan kerusakan fasilitas menggunakan model **Ultralytics YOLO (You Only Look Once)** format `.tflite`.
+* **Cara Kerja**: Penghuni atau Admin mengarahkan kamera ke fasilitas kost yang rusak. AI langsung mengenali jenis objek yang mengalami kerusakan (misal: kursi, kipas, lampu) dan menggenerasi kalimat laporan otomatis (contoh: *"Kerusakan terdeteksi pada: Kursi. Mohon segera ditangani"*).
+* **Konsep Edge**: Model AI Neural Network (YOLOv11 Int8) ditanamkan (*embedded*) langsung di dalam aplikasi (folder assets) dengan kecepatan deteksi (FPS) tinggi meski tanpa sinyal internet.
 
 ---
 
-**Project ini dibuat untuk memenuhi tugas Implementasi Fitur AI (Edge Computing).**
+## 📸 Screenshots Implementasi
+
+*(Silakan unggah gambar Anda ke GitHub / Imgur dan masukkan link gambarnya di bawah ini)*
+
+### 1. KTP Scanner (Google ML Kit)
+> Menampilkan AI mendeteksi dan mengekstrak NIK serta Nama dari KTP.
+![KTP Scanner AI](<[Masukkan URL Gambar Screenshot KTP Scanner]>)
+
+### 2. YOLO Damage Scanner
+> Menampilkan deteksi objek real-time menggunakan YOLO Camera.
+![YOLO Scanner](<[Masukkan URL Gambar Screenshot YOLO Scanner]>)
+
+
