@@ -38,7 +38,11 @@ Fitur pelaporan kerusakan fasilitas menggunakan model **Ultralytics YOLO (You On
 
 ### 1. KTP Scanner (Google ML Kit)
 > Menampilkan AI mendeteksi dan mengekstrak NIK serta Nama dari KTP.
-![KTP Scanner AI](<[Masukkan URL Gambar Screenshot KTP Scanner]>)
+<img width="782" height="1600" alt="305f924d-5770-4d97-851a-dd6a44ba73ad" src="https://github.com/user-attachments/assets/fd8827d9-0eed-43da-9052-1e437bc06a5c" /><img width="782" height="1600" alt="0c4c13c1-1e7f-46bf-8282-b4ccd7016ffd" src="https://github.com/user-attachments/assets/603057dc-092e-4780-8ef4-741cfa3cd46e" />
+<img width="782" height="1600" alt="1f60c21a-17cc-44e2-883b-15cca859442e" src="https://github.com/user-attachments/assets/0979d459-9dbb-4cde-9347-31dc072a07b3" /><img width="782" height="1600" alt="f5f54dc4-ff31-4932-94b5-c4a0a7a78e6b" src="https://github.com/user-attachments/assets/9a2f4279-0aa7-4b42-8caf-fcfc0a2fdb05" />
+![Uploading 0c4c13c1-1e7f-46bf-8282-b4ccd7016ffd.jpg…]()
+
+
 
 ### 2. YOLO Damage Scanner
 > Menampilkan deteksi objek real-time menggunakan YOLO Camera.
