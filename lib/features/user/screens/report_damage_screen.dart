@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/ticket_provider.dart';
 import '../../admin/providers/local_db_provider.dart';
+import '../../ai/screens/yolo_damage_scanner_screen.dart';
 
 class ReportDamageScreen extends StatefulWidget {
   const ReportDamageScreen({super.key});
@@ -93,8 +94,40 @@ class _ReportDamageScreenState extends State<ReportDamageScreen> {
               decoration: InputDecoration(
                 hintText: 'Misal: Kran air bocor, lampu mati...',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: 'Hapus teks',
+                  onPressed: () => _deskripsiController.clear(),
+                ),
               ),
               maxLines: 4,
+            ),
+            const SizedBox(height: 10),
+
+            // ── Tombol AI Scanner ─────────────────────────────
+            OutlinedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const YoloDamageScannerScreen(),
+                  ),
+                );
+                // Jika user sudah konfirmasi hasil, isi otomatis
+                if (result != null && result.isNotEmpty) {
+                  _deskripsiController.text = result;
+                }
+              },
+              icon: const Icon(Icons.document_scanner_outlined),
+              label: const Text('Scan Kerusakan dengan AI'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: const Color(0xFF4F46E5),
+                side: const BorderSide(color: Color(0xFF4F46E5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
             const Text('Bukti Foto', style: TextStyle(fontWeight: FontWeight.bold)),

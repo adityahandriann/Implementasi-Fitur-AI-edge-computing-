@@ -1005,6 +1005,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  ultralytics_yolo:
+    dependency: "direct main"
+    description:
+      name: ultralytics_yolo
+      sha256: "5d0ab51b160787019b5863693087bec516236953fdfa5eae3d4e07d686b1fa44"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.4"
   unicode:
     dependency: transitive
     description:
